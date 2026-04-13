@@ -169,10 +169,13 @@ async def webhook(request: Request):
         if risk <= 0 or risk > 1:
             risk = config.risk_percent  # Sicherheits-Capping
 
-        # 4. Calculate size + round decimals (SDK-Fix)
+        # 4. Calculate size
         notional = equity * risk
         sz = notional / price
-        sz = round(sz, 6)                     # Hyperliquid-Perps can execute max. 6 decimals
+
+        # Hyperliquid wants sizes in 0.00001 increments for BTC, so we round to that
+        step_size = 0.00001
+        sz = round(sz / step_size) * step_size
 
         logger.info(f"📊 Equity: ${equity:,.2f} | Price: ${price:,.2f} | Risk: {risk*100:.2f}% → Size: {sz:.6f} {config.coin}")
 
