@@ -150,28 +150,29 @@ async def webhook(request: Request):
     is_buy = action == "buy"
     direction = "LONG" if is_buy else "SHORT"
 
-    # === Prozentuale Größenberechnung ===
+    # === Position Sizing Logic ===
     try:
-        # 1. Aktuellen Account Value holen
+        # 1. Get current account value
         if config.address is None:
             raise ValueError("config.address is not set")
         user_state = info.user_state(config.address)
         equity = float(user_state["marginSummary"]["accountValue"])
 
-        # 2. Aktuellen Preis holen
+        # 2. Get current price
         mids = info.all_mids()
         price = float(mids.get(config.coin))
         if price <= 0:
             raise ValueError("Could not retrieve price")
 
-        # 3. Risk-Prozent bestimmen (Alert > config)
+        # 3. Identify risk (from payload or config) + sanity check + Safety-Capping
         risk = payload.risk_percent if payload.risk_percent is not None else config.risk_percent
         if risk <= 0 or risk > 1:
             risk = config.risk_percent  # Sicherheits-Capping
 
-        # 4. Size berechnen
+        # 4. Calculate size + round decimals (SDK-Fix)
         notional = equity * risk
         sz = notional / price
+        sz = round(sz, 6)                     # Hyperliquid-Perps can execute max. 6 decimals
 
         logger.info(f"📊 Equity: ${equity:,.2f} | Price: ${price:,.2f} | Risk: {risk*100:.2f}% → Size: {sz:.6f} {config.coin}")
 
