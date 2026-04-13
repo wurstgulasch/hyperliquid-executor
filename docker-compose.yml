@@ -1,0 +1,21 @@
+services:
+  hyperliquid-bot:
+    build: .
+    container_name: hyperliquid-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "9001:9001"
+    volumes:
+      - ./app:/app
+      - ./logs:/app/logs
+    command: uvicorn app.main:app --host 0.0.0.0 --port 9001
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'

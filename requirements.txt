@@ -1,0 +1,7 @@
+fastapi==0.115.0
+uvicorn==0.32.0
+hyperliquid-python-sdk==0.22.0
+python-dotenv==1.0.1
+pydantic==2.10.0
+tenacity==8.2.3
+slowapi==0.1.9
