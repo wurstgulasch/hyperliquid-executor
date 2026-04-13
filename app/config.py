@@ -10,6 +10,7 @@ class Config(BaseModel):
     secret_key: str | None = Field(default=None, description="Hyperliquid secret key")
     coin: str = Field(default="BTC", description="Trading coin")
     risk_percent: float = Field(default=0.01, ge=0.0001, le=0.1, description="Risk percentage per trade")
+    sub_address: str | None = Field(default=None, description="Hyperliquid vault / sub-account address (optional, leave empty for master)")
     slippage: float = Field(default=0.015, ge=0, le=0.1, description="Slippage tolerance")
     webhook_secret: str | None = Field(default=None, description="Webhook secret for authentication")
     discord_bot_token: str | None = Field(default=None, description="Discord bot token for DM notifications")
@@ -49,5 +50,6 @@ config = Config(
     slippage=float(os.getenv("SLIPPAGE", 0.015)),
     webhook_secret=os.getenv("WEBHOOK_SECRET"),
     discord_bot_token=os.getenv("DISCORD_BOT_TOKEN"),
-    discord_user_id=os.getenv("DISCORD_USER_ID")
+    discord_user_id=os.getenv("DISCORD_USER_ID"),
+    sub_address=os.getenv("HYPERLIQUID_SUB_ADDRESS"),
 )

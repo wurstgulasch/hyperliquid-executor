@@ -19,7 +19,7 @@ from hyperliquid.info import Info
 from hyperliquid.exchange import Exchange
 from hyperliquid.utils import constants
 
-from .config import config
+from config import config
 
 app = FastAPI(title="Hyperliquid TradingView Webhook Bot – Percent Risk")
 
@@ -59,6 +59,7 @@ def get_exchange():
     return Exchange(
         wallet=Account.from_key(config.secret_key),
         account_address=config.address,
+        vault_address=config.sub_address,   # ← NEU: Sub-Account-Unterstützung
         base_url=API_URL,
     )
 
