@@ -6,7 +6,7 @@ load_dotenv()
 
 class Config(BaseModel):
     env: str = Field(default="TESTNET", description="Environment: TESTNET or MAINNET")
-    address: str | None = Field(default=None, description="Hyperliquid master wallet address")
+    master_address: str | None = Field(default=None, description="Hyperliquid master wallet address")
     secret_key: str | None = Field(default=None, description="Hyperliquid secret key")
     coin: str = Field(default="BTC", description="Trading coin")
     risk_percent: float = Field(default=0.01, ge=0.0001, le=0.1, description="Risk percentage per trade")
@@ -43,7 +43,7 @@ class Config(BaseModel):
 # Load config
 config = Config(
     env=os.getenv("ENV", "TESTNET"),
-    address=os.getenv("HYPERLIQUID_MASTER_ADDRESS"),
+    master_address=os.getenv("HYPERLIQUID_MASTER_ADDRESS"),
     secret_key=os.getenv("HYPERLIQUID_SECRET_KEY"),
     coin=os.getenv("COIN", "BTC"),
     risk_percent=float(os.getenv("RISK_PERCENT", 0.01)),

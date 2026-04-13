@@ -58,8 +58,8 @@ def get_info():
 def get_exchange():
     return Exchange(
         wallet=Account.from_key(config.secret_key),
-        account_address=config.address,
-        vault_address=config.sub_address,   # ← NEU: Sub-Account-Unterstützung
+        master_address=config.master_address,
+        sub_address=config.sub_address,   # ← NEU: Sub-Account-Unterstützung
         base_url=API_URL,
     )
 
@@ -132,16 +132,33 @@ class WebhookPayload(BaseModel):
 @app.post("/webhook")
 @limiter.limit("10/minute")
 async def webhook(request: Request):
-    if config.webhook_secret:
-        if request.headers.get("X-Webhook-Secret") != config.webhook_secret:
-            raise HTTPException(status_code=401, detail="Unauthorized")
-
     try:
         data = await request.json()
-        payload = WebhookPayload.model_validate(data)
     except Exception as e:
         logger.error(f"❌ Invalid JSON: {e}")
         raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    # === SECRET-CHECK: Header ODER JSON-Body (für TradingView) ===
+    received_secret = (
+        request.headers.get("X-Webhook-Secret") or
+        data.get("secret")
+    )
+
+    if config.webhook_secret and received_secret != config.webhook_secret:
+        logger.warning("Invalid webhook secret")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Pydantic-Modell erweitern (wir validieren danach)
+    class WebhookPayload(BaseModel):
+        action: str
+        risk_percent: float | None = None
+        secret: str | None = None   # ← NEU: für TradingView
+
+    try:
+        payload = WebhookPayload.model_validate(data)
+    except Exception as e:
+        logger.error(f"❌ Invalid payload: {e}")
+        raise HTTPException(status_code=400, detail="Invalid payload")
 
     action = payload.action.lower()
     if action not in ["buy", "sell"]:
@@ -150,35 +167,31 @@ async def webhook(request: Request):
     is_buy = action == "buy"
     direction = "LONG" if is_buy else "SHORT"
 
-    # === Position Sizing Logic ===
+    # === Position Sizing Logic (unverändert ab hier) ===
     try:
-        # 1. Get current account value
-        if config.address is None:
+        if config.master_address is None:
             raise ValueError("config.address is not set")
-        user_state = info.user_state(config.address)
+        user_state = info.user_state(config.master_address)
         equity = float(user_state["marginSummary"]["accountValue"])
 
-        # 2. Get current price
+        # Get price from Hyperliquid API
         mids = info.all_mids()
         price = float(mids.get(config.coin))
         if price <= 0:
             raise ValueError("Could not retrieve price")
 
-        # 3. Identify risk (from payload or config) + sanity check + Safety-Capping
+        # Get risk from payload or fallback to config
         risk = payload.risk_percent if payload.risk_percent is not None else config.risk_percent
         if risk <= 0 or risk > 1:
-            risk = config.risk_percent  # Sicherheits-Capping
+            risk = config.risk_percent
 
-        # 4. Calculate size
+        # size calculation and rounding to 5 decimals (for BTC) - adjust step_size for other coins
         notional = equity * risk
         sz = notional / price
-
-        # Hyperliquid wants sizes in 0.00001 increments for BTC, so we round to that
         step_size = 0.00001
         sz = round(sz / step_size) * step_size
 
-        logger.info(f"📊 Equity: ${equity:,.2f} | Price: ${price:,.2f} | Risk: {risk*100:.2f}% → Size: {sz:.6f} {config.coin}")
-
+        logger.info(f"📊 Equity: ${equity:,.2f} | Price: ${price:,.2f} | Risk: {risk*100:.2f}% → Size: {sz:.6f} {config.coin}")    
     except Exception as e:
         logger.error(f"❌ Error in size calculation: {e}")
         return {"status": "error", "message": str(e)}
@@ -193,7 +206,6 @@ async def webhook(request: Request):
             px=None,
             slippage=config.slippage
         )
-
         if order_result.get("status") == "ok":
             try:
                 await notify_order_executed(
@@ -206,7 +218,6 @@ async def webhook(request: Request):
                 )
             except Exception as exc:
                 logger.warning(f"⚠️ Discord notification failed: {exc}")
-
             logger.info("✅ Order placed successfully")
             return {
                 "status": "success",
@@ -220,7 +231,6 @@ async def webhook(request: Request):
         else:
             logger.error(f"❌ Order failed: {order_result}")
             return {"status": "error", "result": order_result}
-
     except Exception as e:
         logger.exception("💥 Exception during order placement")
         return {"status": "error", "message": str(e)}
