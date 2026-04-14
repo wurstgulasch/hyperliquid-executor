@@ -58,7 +58,7 @@ A FastAPI-based webhook bot for executing trades on Hyperliquid based on signals
 Create a `.env` file with the following variables:
 
 - `ENV`: TESTNET or MAINNET (default: TESTNET)
-- `HYPERLIQUID_ADDRESS`: Your Hyperliquid wallet address (required)
+- `HYPERLIQUID_MASTER_ADDRESS`: Your Hyperliquid master wallet address (required)
 - `HYPERLIQUID_SECRET_KEY`: Your Hyperliquid secret key (required)
 - `COIN`: Trading coin (default: BTC)
 - `RISK_PERCENT`: Risk percentage per trade (default: 0.01, max 0.1)

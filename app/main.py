@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI, Request, HTTPException
@@ -26,7 +27,9 @@ app = FastAPI(title="Hyperliquid TradingView Webhook Bot – Percent Risk")
 # Logging setup
 logger = logging.getLogger("hyperliquid-bot")
 logger.setLevel(logging.INFO)
-handler = RotatingFileHandler("/app/logs/bot.log", maxBytes=10*1024*1024, backupCount=5)
+log_dir = os.getenv("LOG_DIR") or os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
+os.makedirs(log_dir, exist_ok=True)
+handler = RotatingFileHandler(os.path.join(log_dir, "bot.log"), maxBytes=10*1024*1024, backupCount=5)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
@@ -58,8 +61,8 @@ def get_info():
 def get_exchange():
     return Exchange(
         wallet=Account.from_key(config.secret_key),
-        master_address=config.master_address,
-        sub_address=config.sub_address,   # ← NEU: Sub-Account-Unterstützung
+        account_address=config.master_address,
+        vault_address=config.sub_address,
         base_url=API_URL,
     )
 
@@ -123,11 +126,6 @@ async def notify_order_executed(*, direction: str, size: float, risk: float, equ
     await asyncio.to_thread(send_discord_dm, message)
 
 logger.info(f"🚀 Bot started – {config.env} – Risk: {config.risk_percent*100:.2f}% per Trade – Coin: {config.coin}")
-
-class WebhookPayload(BaseModel):
-    action: str                    # "buy" or "sell"
-    risk_percent: float | None = None   # Optional: Overrides config
-    size: float | None = None      # Ignored (we only use percent)
 
 @app.post("/webhook")
 @limiter.limit("10/minute")
